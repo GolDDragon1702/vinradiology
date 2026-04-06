@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from "react-markdown";
 import {
   Upload,
@@ -25,6 +26,7 @@ interface ChatMessage {
 }
 
 const VQAPage: React.FC = () => {
+  const { user } = useAuth();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -32,6 +34,7 @@ const VQAPage: React.FC = () => {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const sessionIdRef = useRef<string | null>(null);
   const { toast } = useToast();
 
   const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,6 +49,7 @@ const VQAPage: React.FC = () => {
       };
       reader.readAsDataURL(file);
       setMessages([]);
+      sessionIdRef.current = null;
     }
   }, []);
 
@@ -60,29 +64,59 @@ const VQAPage: React.FC = () => {
     }
 
     const userMsg: ChatMessage = { role: "user", content: question, timestamp: new Date() };
+    const currentQuestion = question;
     setMessages((prev) => [...prev, userMsg]);
     setQuestion("");
     setLoading(true);
 
     try {
+      // Create VQA session if first message
+      if (!sessionIdRef.current && user) {
+        const { data: session } = await supabase.from("vqa_sessions").insert({
+          user_id: user.id,
+          image_type: imageFile.type,
+          clinical_notes: clinicalNotes || null,
+        }).select("id").single();
+        if (session) sessionIdRef.current = session.id;
+      }
+
+      // Save user message
+      if (sessionIdRef.current) {
+        await supabase.from("vqa_messages").insert({
+          session_id: sessionIdRef.current,
+          role: "user",
+          content: currentQuestion,
+        });
+      }
+
       const { data, error } = await supabase.functions.invoke("medical-ai", {
         body: {
           task_type: "vqa",
           image_base64: imageBase64,
           image_type: imageFile.type,
           clinical_notes: clinicalNotes,
-          question: question,
+          question: currentQuestion,
         },
       });
 
       if (error) throw error;
 
+      const answerContent = data.refined_report || data.draft_report || "Không thể trả lời câu hỏi.";
       const assistantMsg: ChatMessage = {
         role: "assistant",
-        content: data.refined_report || data.draft_report || "Không thể trả lời câu hỏi.",
+        content: answerContent,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Save assistant message
+      if (sessionIdRef.current) {
+        await supabase.from("vqa_messages").insert({
+          session_id: sessionIdRef.current,
+          role: "assistant",
+          content: answerContent,
+        });
+      }
     } catch (error: any) {
       console.error("VQA error:", error);
       toast({ title: "Lỗi", description: error.message || "Không thể xử lý câu hỏi.", variant: "destructive" });

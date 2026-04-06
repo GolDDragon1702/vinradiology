@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from "react-markdown";
 import {
   Upload,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 
 const ReportPage: React.FC = () => {
+  const { user } = useAuth();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [clinicalNotes, setClinicalNotes] = useState("");
@@ -102,7 +104,20 @@ const ReportPage: React.FC = () => {
       setRefinedReport(data.refined_report || "");
       setRefinementLog(data.refinement_log || []);
 
-      toast({ title: "Thành công!", description: "Báo cáo đã được tạo và tinh chỉnh." });
+      // Save to database
+      if (user) {
+        await supabase.from("medical_reports").insert({
+          user_id: user.id,
+          image_type: imageFile.type,
+          clinical_notes: clinicalNotes,
+          draft_report: data.draft_report || "",
+          refined_report: data.refined_report || "",
+          refinement_log: data.refinement_log || [],
+          task_type: "report_generation",
+        });
+      }
+
+      toast({ title: "Thành công!", description: "Báo cáo đã được tạo và lưu vào lịch sử." });
     } catch (error: any) {
       console.error("Report generation error:", error);
       toast({ title: "Lỗi", description: error.message || "Không thể tạo báo cáo.", variant: "destructive" });
