@@ -14,7 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      medical_reports: {
+        Row: {
+          clinical_notes: string | null
+          created_at: string
+          draft_report: string | null
+          id: string
+          image_type: string | null
+          image_url: string | null
+          refined_report: string | null
+          refinement_log: Json | null
+          task_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clinical_notes?: string | null
+          created_at?: string
+          draft_report?: string | null
+          id?: string
+          image_type?: string | null
+          image_url?: string | null
+          refined_report?: string | null
+          refinement_log?: Json | null
+          task_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clinical_notes?: string | null
+          created_at?: string
+          draft_report?: string | null
+          id?: string
+          image_type?: string | null
+          image_url?: string | null
+          refined_report?: string | null
+          refinement_log?: Json | null
+          task_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vqa_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vqa_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vqa_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vqa_sessions: {
+        Row: {
+          clinical_notes: string | null
+          created_at: string
+          id: string
+          image_type: string | null
+          image_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clinical_notes?: string | null
+          created_at?: string
+          id?: string
+          image_type?: string | null
+          image_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clinical_notes?: string | null
+          created_at?: string
+          id?: string
+          image_type?: string | null
+          image_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
