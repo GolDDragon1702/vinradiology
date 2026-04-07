@@ -1,12 +1,12 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from "react-markdown";
+import ReportChat from "@/components/ReportChat";
 import {
   Upload,
   FileText,
@@ -28,6 +28,7 @@ const ReportPage: React.FC = () => {
   const [refinedReport, setRefinedReport] = useState("");
   const [refinementLog, setRefinementLog] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
+  const imageBase64Ref = useRef<string | null>(null);
   const { toast } = useToast();
 
   const steps = [
@@ -77,6 +78,7 @@ const ReportPage: React.FC = () => {
         };
         reader.readAsDataURL(imageFile);
       });
+      imageBase64Ref.current = base64;
 
       // Simulate steps for UX
       for (let i = 0; i < 3; i++) {
@@ -294,6 +296,16 @@ const ReportPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {refinedReport && (
+            <ReportChat
+              currentReport={refinedReport}
+              clinicalNotes={clinicalNotes}
+              imageBase64={imageBase64Ref.current}
+              imageType={imageFile?.type || null}
+              onReportUpdate={(newReport) => setRefinedReport(newReport)}
+            />
           )}
 
           {!draftReport && !loading && (
