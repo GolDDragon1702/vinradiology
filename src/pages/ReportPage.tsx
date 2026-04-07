@@ -298,7 +298,17 @@ const ReportPage: React.FC = () => {
             </Card>
           )}
 
-          {!draftReport && !loading && (
+          {refinedReport && (
+            <ReportChat
+              currentReport={refinedReport}
+              clinicalNotes={clinicalNotes}
+              imageBase64={imageBase64Ref.current}
+              imageType={imageFile?.type || null}
+              onReportUpdate={(newReport) => setRefinedReport(newReport)}
+            />
+          )}
+
+
             <Card className="shadow-card">
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                 <FileText className="h-12 w-12 text-muted-foreground/30 mb-4" />
