@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from "react-markdown";
 import ReportChat from "@/components/ReportChat";
+import { exportReportToPdf } from "@/lib/exportPdf";
 import {
   Upload,
   FileText,
