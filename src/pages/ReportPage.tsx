@@ -308,7 +308,7 @@ const ReportPage: React.FC = () => {
             />
           )}
 
-
+          {!draftReport && !loading && (
             <Card className="shadow-card">
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                 <FileText className="h-12 w-12 text-muted-foreground/30 mb-4" />
