@@ -28,6 +28,7 @@ const ReportPage: React.FC = () => {
   const [refinedReport, setRefinedReport] = useState("");
   const [refinementLog, setRefinementLog] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
+  const imageBase64Ref = useRef<string | null>(null);
   const { toast } = useToast();
 
   const steps = [
