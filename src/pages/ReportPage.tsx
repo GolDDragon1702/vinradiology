@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import ReactMarkdown from "react-markdown";
 import ReportChat from "@/components/ReportChat";
+import { exportReportToPdf } from "@/lib/exportPdf";
 import {
   Upload,
   FileText,
@@ -270,9 +271,13 @@ const ReportPage: React.FC = () => {
                 <div className="prose prose-sm max-w-none text-foreground bg-medical-success/5 p-4 rounded-lg border border-medical-success/20">
                   <ReactMarkdown>{refinedReport}</ReactMarkdown>
                 </div>
-                <Button variant="outline" className="mt-4 w-full">
+                <Button
+                  variant="outline"
+                  className="mt-4 w-full"
+                  onClick={() => exportReportToPdf(refinedReport, clinicalNotes, imagePreview)}
+                >
                   <Download className="h-4 w-4 mr-2" />
-                  Tải báo cáo
+                  Tải báo cáo PDF
                 </Button>
               </CardContent>
             </Card>
