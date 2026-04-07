@@ -78,6 +78,7 @@ const ReportPage: React.FC = () => {
         };
         reader.readAsDataURL(imageFile);
       });
+      imageBase64Ref.current = base64;
 
       // Simulate steps for UX
       for (let i = 0; i < 3; i++) {
