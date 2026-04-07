@@ -182,8 +182,90 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { task_type, image_base64, image_type, clinical_notes, question } = await req.json();
+    const { task_type, image_base64, image_type, clinical_notes, question, chat_message, current_report, chat_history } = await req.json();
 
+    // ===== REPORT CHAT: Doctor interacts with generated report =====
+    if (task_type === "report_chat") {
+      if (!chat_message || !current_report) {
+        return new Response(JSON.stringify({ error: "Missing required fields: chat_message, current_report" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const historyMessages = (chat_history || []).map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      const systemPrompt = `Bạn là bác sĩ X-quang cao cấp (senior radiologist) hỗ trợ bác sĩ lâm sàng.
+Bạn đang thảo luận về một báo cáo y khoa đã được tạo. Khi bác sĩ yêu cầu chỉnh sửa, bạn phải:
+
+1. Trả lời câu hỏi hoặc thảo luận bằng tiếng Việt
+2. Nếu bác sĩ yêu cầu thay đổi báo cáo, hãy tạo lại BÁO CÁO ĐẦY ĐỦ ĐÃ CẬP NHẬT trong block:
+\`\`\`updated_report
+[toàn bộ báo cáo đã cập nhật ở đây]
+\`\`\`
+
+Báo cáo hiện tại:
+${current_report}
+
+${clinical_notes ? `Ghi chú lâm sàng: ${clinical_notes}` : ""}`;
+
+      const messages: any[] = [
+        { role: "system", content: systemPrompt },
+        ...historyMessages,
+        { role: "user", content: chat_message },
+      ];
+
+      // Include image if available
+      if (image_base64) {
+        messages[messages.length - 1] = {
+          role: "user",
+          content: [
+            { type: "text", text: chat_message },
+            { type: "image_url", image_url: { url: `data:${image_type || "image/png"};base64,${image_base64}` } },
+          ],
+        };
+      }
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages,
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`AI gateway error (${response.status}): ${text}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.choices?.[0]?.message?.content || "";
+
+      // Extract updated report if present
+      const reportMatch = aiResponse.match(/```updated_report\n([\s\S]*?)```/);
+      const updatedReport = reportMatch ? reportMatch[1].trim() : null;
+      const chatResponse = reportMatch
+        ? aiResponse.replace(/```updated_report\n[\s\S]*?```/, "").trim()
+        : aiResponse;
+
+      return new Response(
+        JSON.stringify({
+          chat_response: chatResponse,
+          updated_report: updatedReport,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ===== EXISTING FLOWS =====
     if (!task_type || !image_base64) {
       return new Response(JSON.stringify({ error: "Missing required fields: task_type, image_base64" }), {
         status: 400,
