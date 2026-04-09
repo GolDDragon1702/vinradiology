@@ -21,8 +21,8 @@ export async function exportReportToPdf(
   });
 
   container.innerHTML = `
-    <div style="text-align:center; margin-bottom:24px; border-bottom:2px solid #00A19A; padding-bottom:16px;">
-      <h1 style="font-size:22px; color:#00A19A; margin:0;">VINMEC Medical AI</h1>
+    <div style="text-align:center; margin-bottom:24px; border-bottom:2px solid #0077B6; padding-bottom:16px;">
+      <h1 style="font-size:22px; color:#0077B6; margin:0;">VINMEC Medical AI</h1>
       <p style="font-size:11px; color:#666; margin:4px 0 0;">Chăm sóc bằng Tài năng, Y đức và Sự thấu cảm</p>
       <p style="font-size:12px; color:#666; margin:4px 0 0;">Báo cáo y khoa tự động — ${dateStr}</p>
     </div>
@@ -30,8 +30,8 @@ export async function exportReportToPdf(
     ${imagePreview ? `<div style="text-align:center; margin-bottom:20px;"><img src="${imagePreview}" style="max-height:240px; border-radius:8px; border:1px solid #ddd;" /></div>` : ""}
 
     ${clinicalNotes ? `
-      <div style="background:#f0faf9; padding:12px 16px; border-radius:8px; margin-bottom:20px; border-left:4px solid #00A19A;">
-        <p style="font-size:11px; font-weight:600; color:#00A19A; margin:0 0 4px;">GHI CHÚ LÂM SÀNG</p>
+      <div style="background:#EBF5FB; padding:12px 16px; border-radius:8px; margin-bottom:20px; border-left:4px solid #0077B6;">
+        <p style="font-size:11px; font-weight:600; color:#0077B6; margin:0 0 4px;">GHI CHÚ LÂM SÀNG</p>
         <p style="font-size:13px; margin:0; white-space:pre-wrap;">${clinicalNotes}</p>
       </div>
     ` : ""}
@@ -58,9 +58,9 @@ export async function exportReportToPdf(
 
 function markdownToHtml(md: string): string {
   return md
-    .replace(/^### (.*$)/gm, '<h3 style="font-size:15px; color:#00A19A; margin:16px 0 6px;">$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2 style="font-size:17px; color:#00A19A; margin:20px 0 8px;">$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1 style="font-size:19px; color:#00A19A; margin:20px 0 8px;">$1</h1>')
+    .replace(/^### (.*$)/gm, '<h3 style="font-size:15px; color:#0077B6; margin:16px 0 6px;">$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2 style="font-size:17px; color:#0077B6; margin:20px 0 8px;">$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1 style="font-size:19px; color:#0077B6; margin:20px 0 8px;">$1</h1>')
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
     .replace(/^- (.*$)/gm, '<li style="margin-left:16px;">$1</li>')
