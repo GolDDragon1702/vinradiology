@@ -2,6 +2,7 @@ import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
+import VinmecLogo from "@/components/VinmecLogo";
 import {
   Sidebar,
   SidebarContent,
@@ -16,7 +17,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  Activity,
   LayoutDashboard,
   FileText,
   MessageSquareText,
@@ -38,7 +38,6 @@ function AppSidebarContent() {
   const collapsed = state === "collapsed";
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleSignOut = async () => {
     await signOut();
@@ -49,12 +48,17 @@ function AppSidebarContent() {
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="p-4 flex items-center gap-3">
         <div className="p-2 rounded-lg gradient-primary flex-shrink-0">
-          <Activity className="h-5 w-5 text-primary-foreground" />
+          <VinmecLogo size={20} color="white" />
         </div>
         {!collapsed && (
-          <span className="font-heading font-bold text-lg text-sidebar-foreground">
-            MedVision AI
-          </span>
+          <div className="flex flex-col">
+            <span className="font-heading font-bold text-lg text-sidebar-foreground leading-tight">
+              VINMEC
+            </span>
+            <span className="text-[10px] text-sidebar-foreground/60 leading-tight">
+              Medical AI System
+            </span>
+          </div>
         )}
       </div>
 
@@ -123,8 +127,8 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <header className="h-14 flex items-center border-b bg-card px-4 sticky top-0 z-10">
             <SidebarTrigger className="mr-4" />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Activity className="h-4 w-4 text-primary" />
-              <span>Medical AI System</span>
+              <VinmecLogo size={18} className="text-primary" />
+              <span>Vinmec Medical AI</span>
             </div>
           </header>
           <main className="flex-1 p-6 overflow-auto">{children}</main>
