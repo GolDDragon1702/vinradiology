@@ -3,7 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { FileText, MessageSquareText, Activity, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import { FileText, MessageSquareText, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import VinmecLogo from "@/components/VinmecLogo";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -24,7 +25,7 @@ const Dashboard: React.FC = () => {
           Xin chào, {user?.user_metadata?.full_name || "Bác sĩ"}!
         </h1>
         <p className="text-muted-foreground mt-1">
-          Chào mừng đến với MedVision AI — hệ thống phân tích hình ảnh y khoa thông minh.
+          Chào mừng đến với Vinmec Medical AI — Chăm sóc bằng Tài năng, Y đức và Sự thấu cảm.
         </p>
       </div>
 
@@ -116,7 +117,7 @@ const Dashboard: React.FC = () => {
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <Activity className="h-5 w-5 text-primary" />
+            <VinmecLogo size={20} className="text-primary" />
             <CardTitle className="font-heading text-lg">Kiến trúc hệ thống</CardTitle>
           </div>
         </CardHeader>

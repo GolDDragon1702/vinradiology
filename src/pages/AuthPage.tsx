@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, ArrowRight } from "lucide-react";
+import VinmecLogo from "@/components/VinmecLogo";
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -52,18 +53,21 @@ const AuthPage: React.FC = () => {
           <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-primary-foreground/10 blur-3xl" />
         </div>
         <div className="relative z-10 max-w-md text-primary-foreground">
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-4 mb-8">
             <div className="p-3 rounded-xl bg-primary-foreground/20 backdrop-blur-sm">
-              <Activity className="h-8 w-8" />
+              <VinmecLogo size={40} color="white" />
             </div>
-            <h1 className="text-3xl font-heading font-bold">MedVision AI</h1>
+            <div>
+              <h1 className="text-4xl font-heading font-bold tracking-wide">VINMEC</h1>
+              <p className="text-primary-foreground/80 text-sm">Medical AI System</p>
+            </div>
           </div>
-          <p className="text-xl font-heading font-semibold mb-4">
-            Hệ thống AI phân tích hình ảnh y khoa
+          <p className="text-xl font-heading font-semibold mb-2">
+            Chăm sóc bằng Tài năng, Y đức và Sự thấu cảm
           </p>
           <p className="text-primary-foreground/80 leading-relaxed">
-            Sử dụng Vision-Language Model tiên tiến để tạo báo cáo X-quang tự động 
-            và trả lời câu hỏi trực quan về hình ảnh y tế. Hỗ trợ bác sĩ ra quyết định nhanh chóng và chính xác.
+            Hệ thống AI phân tích hình ảnh y khoa tiên tiến. Sử dụng Vision-Language Model 
+            để tạo báo cáo X-quang tự động và trả lời câu hỏi trực quan về hình ảnh y tế.
           </p>
           <div className="mt-10 grid grid-cols-2 gap-4">
             {[
@@ -86,8 +90,8 @@ const AuthPage: React.FC = () => {
         <Card className="w-full max-w-md border-0 shadow-none lg:shadow-card lg:border">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center gap-2 mb-4 lg:hidden">
-              <Activity className="h-6 w-6 text-primary" />
-              <span className="text-xl font-heading font-bold text-foreground">MedVision AI</span>
+              <VinmecLogo size={28} className="text-primary" />
+              <span className="text-xl font-heading font-bold text-foreground">VINMEC</span>
             </div>
             <CardTitle className="text-2xl font-heading">
               {isLogin ? "Đăng nhập" : "Đăng ký tài khoản"}
@@ -95,7 +99,7 @@ const AuthPage: React.FC = () => {
             <CardDescription>
               {isLogin
                 ? "Đăng nhập để sử dụng hệ thống phân tích hình ảnh y khoa"
-                : "Tạo tài khoản mới để bắt đầu sử dụng MedVision AI"}
+                : "Tạo tài khoản mới để bắt đầu sử dụng Vinmec Medical AI"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -123,7 +127,7 @@ const AuthPage: React.FC = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="doctor@hospital.vn"
+                    placeholder="doctor@vinmec.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
