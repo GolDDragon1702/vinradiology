@@ -153,8 +153,8 @@ const ReportPage: React.FC = () => {
             <CardTitle className="flex gap-2 items-center">
               <ImageIcon className="w-5 h-5" /> Hình ảnh
             </CardTitle>
+            <CardDescription>Upload ảnh X-quang</CardDescription>
           </CardHeader>
-          <CardDescription>Upload ảnh X-quang</CardDescription>
           <CardContent>
             {imagePreview ? (
               <div className="relative">
@@ -184,8 +184,8 @@ const ReportPage: React.FC = () => {
             <CardTitle className="flex gap-2 items-center">
               <FileText className="w-5 h-5" /> Ghi chú
             </CardTitle>
+            <CardDescription>Nhập thông tin bệnh nhân, triệu chứng, tiền sử bệnh</CardDescription>
           </CardHeader>
-          <CardDescription>Nhập thông tin bệnh nhân, triệu chứng, tiền sử bệnh</CardDescription>
           <CardContent>
             <Textarea
               placeholder="Ví dụ: Bệnh nhân nam, 55 tuổi. Ho kéo dài 2 tuần, sốt nhẹ. Tiền sử: hút thuốc 20 năm. Khám: ran ẩm đáy phổi phải..."
