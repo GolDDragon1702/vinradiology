@@ -141,7 +141,7 @@ const ReportPage: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold">Tạo báo cáo X-quang</h1>
         <p className="text-muted-foreground">
-          Upload ảnh và nhập ghi chú để tạo báo cáo tự động
+          Upload ảnh X-quang và ghi chú lâm sàng để tạo báo cáo tự động
         </p>
       </div>
 
@@ -154,6 +154,7 @@ const ReportPage: React.FC = () => {
               <ImageIcon className="w-5 h-5" /> Hình ảnh
             </CardTitle>
           </CardHeader>
+          <CardDescription>Upload ảnh X-quang</CardDescription>
           <CardContent>
             {imagePreview ? (
               <div className="relative">
@@ -184,8 +185,10 @@ const ReportPage: React.FC = () => {
               <FileText className="w-5 h-5" /> Ghi chú
             </CardTitle>
           </CardHeader>
+          <CardDescription>Nhập thông tin bệnh nhân, triệu chứng, tiền sử bệnh</CardDescription>
           <CardContent>
             <Textarea
+              placeholder="Ví dụ: Bệnh nhân nam, 55 tuổi. Ho kéo dài 2 tuần, sốt nhẹ. Tiền sử: hút thuốc 20 năm. Khám: ran ẩm đáy phổi phải..."
               value={clinicalNotes}
               onChange={(e) => setClinicalNotes(e.target.value)}
               className="min-h-[150px]"
