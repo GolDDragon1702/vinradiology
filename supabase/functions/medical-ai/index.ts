@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // ================= TYPES =================
 interface OrchestratorPlan {
-  task_type: "report_generation" | "vqa";
+  task_type: "report_generation" | "vqa" | "comparison";
   steps: string[];
   tools: string[];
 }
@@ -329,7 +329,48 @@ serve(async (req) => {
     let systemPrompt = "";
     const userContent: any[] = [];
 
-    if (task_type === "report_generation") {
+    if (task_type === "comparison") {
+      // ================= COMPARISON =================
+      const { image_base64_after, image_type_after } = body;
+      if (!image_base64_after) throw new Error("Missing second image for comparison");
+
+      systemPrompt = `
+Bạn là bác sĩ chuyên gia X-quang. Nhiệm vụ: so sánh 2 ảnh X-quang (trước và sau điều trị).
+
+RULES:
+- Chỉ mô tả những gì nhìn thấy được
+- Không bịa số liệu
+- So sánh cụ thể từng vùng giải phẫu
+
+OUTPUT FORMAT (tiếng Việt):
+
+## TỔNG QUAN
+- Loại ảnh, vùng chụp
+
+## SO SÁNH CHI TIẾT
+### Ảnh trước điều trị
+- Các tổn thương / bất thường
+
+### Ảnh sau điều trị
+- Thay đổi so với trước
+
+## ĐÁNH GIÁ TIẾN TRIỂN
+- Cải thiện / xấu đi / không thay đổi
+- Mức độ đáp ứng điều trị
+
+## KẾT LUẬN VÀ KHUYẾN NGHỊ
+- Nhận xét tổng thể
+- Hướng xử lý tiếp theo
+`;
+
+      userContent.push(
+        { type: "text", text: `Ghi chú lâm sàng: ${clinical_notes || "Không có"}` },
+        { type: "text", text: "Ảnh TRƯỚC điều trị:" },
+        { type: "image_url", image_url: { url: `data:${image_type || "image/png"};base64,${image_base64}` } },
+        { type: "text", text: "Ảnh SAU điều trị:" },
+        { type: "image_url", image_url: { url: `data:${image_type_after || "image/png"};base64,${image_base64_after}` } },
+      );
+    } else if (task_type === "report_generation") {
       systemPrompt = buildReportPrompt(meta);
 
       userContent.push({
@@ -352,12 +393,14 @@ serve(async (req) => {
       });
     }
 
-    userContent.push({
-      type: "image_url",
-      image_url: {
-        url: `data:${image_type || "image/png"};base64,${image_base64}`,
-      },
-    });
+    if (task_type !== "comparison") {
+      userContent.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${image_type || "image/png"};base64,${image_base64}`,
+        },
+      });
+    }
 
     const draft = await callVLM(apiKey, systemPrompt, userContent);
     const refined = await selfRefine(apiKey, draft);
