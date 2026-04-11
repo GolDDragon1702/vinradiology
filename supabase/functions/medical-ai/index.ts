@@ -8,23 +8,45 @@ const corsHeaders = {
 };
 
 // ================= TYPES =================
+type TaskType = "report_generation" | "vqa" | "comparison" | "report_chat";
+
 interface OrchestratorPlan {
-  task_type: "report_generation" | "vqa" | "comparison";
-  steps: string[];
-  tools: string[];
+  task_type: TaskType;
+  pipeline: string[];
+  tools_used: string[];
+  description: string;
+}
+
+interface RequestBody {
+  task_type: TaskType;
+  image_base64?: string;
+  image_type?: string;
+  clinical_notes?: string;
+  question?: string;
+  chat_message?: string;
+  current_report?: string;
+  chat_history?: Array<{ role: string; content: string }>;
+  image_base64_after?: string;
+  image_type_after?: string;
+  patient_name?: string;
+  patient_age?: string;
+  patient_gender?: string;
+  symptoms?: string;
+}
+
+interface PatientMeta {
+  patient_name?: string;
+  patient_age?: string;
+  patient_gender?: string;
+  clinical_notes?: string;
+  symptoms?: string;
 }
 
 // ================= GUARDRAILS =================
 function isOutOfScope(text: string): boolean {
   const blacklist = [
-    "code",
-    "crypto",
-    "bitcoin",
-    "politics",
-    "weather",
-    "game",
-    "hack",
-    "bypass",
+    "code", "crypto", "bitcoin", "politics",
+    "weather", "game", "hack", "bypass",
   ];
   return blacklist.some((k) => text.toLowerCase().includes(k));
 }
@@ -34,7 +56,7 @@ function refusalResponse() {
 }
 
 // ================= HEADER / FOOTER =================
-function buildHeader(meta: any) {
+function buildHeader(meta: PatientMeta) {
   return `
 ================ THÔNG TIN BỆNH NHÂN ================
 
@@ -62,38 +84,118 @@ Bác sĩ X-quang:
 `;
 }
 
-// ================= ORCHESTRATOR =================
-function orchestrate(
-  taskType: string,
-  hasNotes: boolean,
-  hasQuestion: boolean,
-): OrchestratorPlan {
-  const steps: string[] = [];
+// ===============================================================
+//  ORCHESTRATOR AGENT
+//  Central coordinator that plans the pipeline for each task type
+// ===============================================================
+function orchestrate(body: RequestBody): OrchestratorPlan {
+  const { task_type, clinical_notes, question } = body;
+  const pipeline: string[] = [];
   const tools: string[] = [];
+  let description = "";
 
-  steps.push("Preprocess image");
-  tools.push("ImagePreprocessor");
+  switch (task_type) {
+    // ─── Report Generation ───
+    case "report_generation": {
+      description = "Sinh báo cáo X-quang từ ảnh + ghi chú lâm sàng";
+      pipeline.push("1. Validate input (image + notes)");
+      tools.push("InputValidator");
 
-  if (hasNotes) {
-    steps.push("Parse clinical notes");
-    tools.push("ClinicalNoteParser");
+      pipeline.push("2. Preprocess image");
+      tools.push("ImagePreprocessor");
+
+      if (clinical_notes) {
+        pipeline.push("3. Parse clinical notes");
+        tools.push("ClinicalNoteParser");
+      }
+
+      pipeline.push(`${pipeline.length + 1}. VLM report generation`);
+      tools.push("VLM_Report");
+
+      pipeline.push(`${pipeline.length + 1}. Self-Refinement Agent`);
+      tools.push("SelfRefinementAgent");
+
+      pipeline.push(`${pipeline.length + 1}. Output refined report (Vietnamese)`);
+      tools.push("ReportFormatter");
+      break;
+    }
+
+    // ─── VQA (Visual Question Answering) ───
+    case "vqa": {
+      description = "Trả lời câu hỏi dựa trên ảnh y khoa";
+      pipeline.push("1. Validate input (image + question)");
+      tools.push("InputValidator");
+
+      pipeline.push("2. Guardrail check (scope)");
+      tools.push("GuardrailFilter");
+
+      pipeline.push("3. Preprocess image");
+      tools.push("ImagePreprocessor");
+
+      if (clinical_notes) {
+        pipeline.push("4. Parse clinical notes");
+        tools.push("ClinicalNoteParser");
+      }
+
+      pipeline.push(`${pipeline.length + 1}. VLM visual Q&A`);
+      tools.push("VLM_VQA");
+
+      pipeline.push(`${pipeline.length + 1}. Self-Refinement Agent`);
+      tools.push("SelfRefinementAgent");
+      break;
+    }
+
+    // ─── Comparison (Before / After) ───
+    case "comparison": {
+      description = "So sánh 2 ảnh X-quang trước và sau điều trị";
+      pipeline.push("1. Validate input (2 images)");
+      tools.push("InputValidator");
+
+      pipeline.push("2. Preprocess both images");
+      tools.push("ImagePreprocessor x2");
+
+      if (clinical_notes) {
+        pipeline.push("3. Parse clinical notes");
+        tools.push("ClinicalNoteParser");
+      }
+
+      pipeline.push(`${pipeline.length + 1}. VLM comparative analysis`);
+      tools.push("VLM_Comparison");
+
+      pipeline.push(`${pipeline.length + 1}. Self-Refinement Agent`);
+      tools.push("SelfRefinementAgent");
+
+      pipeline.push(`${pipeline.length + 1}. Output comparison report (Vietnamese)`);
+      tools.push("ComparisonFormatter");
+      break;
+    }
+
+    // ─── Report Chat (Interactive editing) ───
+    case "report_chat": {
+      description = "Bác sĩ chat chỉnh sửa báo cáo đã sinh";
+      pipeline.push("1. Validate input (message + report)");
+      tools.push("InputValidator");
+
+      pipeline.push("2. Guardrail check (scope)");
+      tools.push("GuardrailFilter");
+
+      pipeline.push("3. Build context (report + history + image)");
+      tools.push("ContextBuilder");
+
+      pipeline.push("4. VLM chat response");
+      tools.push("VLM_Chat");
+
+      pipeline.push("5. Extract updated report (if any)");
+      tools.push("ReportExtractor");
+      break;
+    }
   }
-
-  if (taskType === "report_generation") {
-    steps.push("Generate report");
-    tools.push("VLM_Report");
-  } else {
-    steps.push("Answer question");
-    tools.push("VLM_VQA");
-  }
-
-  steps.push("Self refinement");
-  tools.push("SelfRefinement");
 
   return {
-    task_type: taskType as any,
-    steps,
-    tools,
+    task_type,
+    pipeline,
+    tools_used: tools,
+    description,
   };
 }
 
@@ -123,6 +225,8 @@ async function callVLM(
 
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 429) throw new Error("Rate limit exceeded. Vui lòng thử lại sau.");
+    if (res.status === 402) throw new Error("Hết credit AI. Vui lòng nạp thêm.");
     throw new Error(`VLM error ${res.status}: ${text}`);
   }
 
@@ -132,8 +236,7 @@ async function callVLM(
 
 // ================= PROMPTS =================
 
-// ---- REPORT GENERATION ----
-function buildReportPrompt(meta: any) {
+function buildReportPrompt(meta: PatientMeta) {
   return `
 You are a medical radiology AI.
 
@@ -173,7 +276,6 @@ ${buildFooter()}
 `;
 }
 
-// ---- VQA ----
 function buildVQAPrompt() {
   return `
 You are a medical VQA assistant.
@@ -183,11 +285,47 @@ RULES:
 - No speculation
 - If insufficient → "Không đủ dữ liệu"
 - If out-of-scope → refuse
+- Answer in Vietnamese
 `;
 }
 
-// ---- CHAT ----
-function buildChatPrompt(currentReport: string, meta: any) {
+function buildComparisonPrompt() {
+  return `
+Bạn là bác sĩ chuyên gia X-quang. Nhiệm vụ: so sánh 2 ảnh X-quang (trước và sau điều trị).
+
+================ RULES ================
+[Anti-Hallucination]
+- Chỉ mô tả những gì nhìn thấy được
+- Không bịa số liệu
+- So sánh cụ thể từng vùng giải phẫu
+
+[Measurement Rules]
+- Chỉ ghi số đo nếu rõ ràng
+- Nếu không chắc → "Không ghi nhận số đo định lượng rõ ràng"
+
+================ OUTPUT FORMAT (tiếng Việt) ================
+
+## TỔNG QUAN
+- Loại ảnh, vùng chụp
+
+## SO SÁNH CHI TIẾT
+### Ảnh trước điều trị
+- Các tổn thương / bất thường
+
+### Ảnh sau điều trị
+- Thay đổi so với trước
+
+## ĐÁNH GIÁ TIẾN TRIỂN
+- Cải thiện / xấu đi / không thay đổi
+- Mức độ đáp ứng điều trị
+
+## KẾT LUẬN VÀ KHUYẾN NGHỊ
+- Nhận xét tổng thể
+- Hướng xử lý tiếp theo
+`;
+}
+
+function buildChatPrompt(currentReport: string, meta: PatientMeta) {
   return `
 Bạn là một bác sĩ chuyên gia X-quang.
 
@@ -242,7 +380,109 @@ Trả về báo cáo hoàn chỉnh bằng tiếng Việt.
   ]);
 }
 
-// ================= MAIN =================
+// ===============================================================
+//  TASK EXECUTORS — Each function handles one task_type
+// ===============================================================
+
+async function executeReportGeneration(
+  apiKey: string,
+  body: RequestBody,
+  meta: PatientMeta,
+  plan: OrchestratorPlan,
+) {
+  const systemPrompt = buildReportPrompt(meta);
+  const userContent: any[] = [
+    { type: "text", text: `Clinical notes: ${body.clinical_notes || "None"}` },
+    { type: "image_url", image_url: { url: `data:${body.image_type || "image/png"};base64,${body.image_base64}` } },
+  ];
+
+  const draft = await callVLM(apiKey, systemPrompt, userContent);
+  const refined = await selfRefine(apiKey, draft);
+
+  return { task_type: body.task_type, plan, draft_report: draft, refined_report: refined };
+}
+
+async function executeVQA(
+  apiKey: string,
+  body: RequestBody,
+  plan: OrchestratorPlan,
+) {
+  if (isOutOfScope(body.question || "")) {
+    return { task_type: body.task_type, plan, answer: refusalResponse() };
+  }
+
+  const systemPrompt = buildVQAPrompt();
+  const userContent: any[] = [
+    { type: "text", text: `Question: ${body.question}` },
+    { type: "image_url", image_url: { url: `data:${body.image_type || "image/png"};base64,${body.image_base64}` } },
+  ];
+
+  const draft = await callVLM(apiKey, systemPrompt, userContent);
+  const refined = await selfRefine(apiKey, draft);
+
+  return { task_type: body.task_type, plan, draft_report: draft, refined_report: refined };
+}
+
+async function executeComparison(
+  apiKey: string,
+  body: RequestBody,
+  plan: OrchestratorPlan,
+) {
+  if (!body.image_base64_after) throw new Error("Missing second image for comparison");
+
+  const systemPrompt = buildComparisonPrompt();
+  const userContent: any[] = [
+    { type: "text", text: `Ghi chú lâm sàng: ${body.clinical_notes || "Không có"}` },
+    { type: "text", text: "Ảnh TRƯỚC điều trị:" },
+    { type: "image_url", image_url: { url: `data:${body.image_type || "image/png"};base64,${body.image_base64}` } },
+    { type: "text", text: "Ảnh SAU điều trị:" },
+    { type: "image_url", image_url: { url: `data:${body.image_type_after || "image/png"};base64,${body.image_base64_after}` } },
+  ];
+
+  const draft = await callVLM(apiKey, systemPrompt, userContent);
+  const refined = await selfRefine(apiKey, draft);
+
+  return { task_type: body.task_type, plan, draft_report: draft, refined_report: refined };
+}
+
+async function executeReportChat(
+  apiKey: string,
+  body: RequestBody,
+  meta: PatientMeta,
+  plan: OrchestratorPlan,
+) {
+  if (!body.chat_message || !body.current_report) {
+    throw new Error("Missing chat input");
+  }
+
+  if (isOutOfScope(body.chat_message)) {
+    return { task_type: body.task_type, plan, chat_response: refusalResponse() };
+  }
+
+  const systemPrompt = buildChatPrompt(body.current_report, meta);
+
+  const messages: any[] = [
+    { role: "system", content: systemPrompt },
+    ...(body.chat_history || []),
+    { role: "user", content: body.chat_message },
+  ];
+
+  const res = await callVLM(apiKey, systemPrompt, messages);
+  const match = res.match(/```updated_report\n([\s\S]*?)```/);
+
+  return {
+    task_type: body.task_type,
+    plan,
+    chat_response: match
+      ? res.replace(/```updated_report[\s\S]*?```/, "").trim()
+      : res,
+    updated_report: match ? match[1].trim() : null,
+  };
+}
+
+// ===============================================================
+//  MAIN — Entry point
+// ===============================================================
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -252,172 +492,56 @@ serve(async (req) => {
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) throw new Error("Missing API key");
 
-    const body = await req.json();
+    const body: RequestBody = await req.json();
 
-    const {
-      task_type,
-      image_base64,
-      image_type,
-      clinical_notes,
-      question,
-      chat_message,
-      current_report,
-      chat_history,
+    if (!body.task_type) throw new Error("Missing task_type");
 
-      // NEW META
-      patient_name,
-      patient_age,
-      patient_gender,
-      symptoms,
-    } = body;
-
-    const meta = {
-      patient_name,
-      patient_age,
-      patient_gender,
-      clinical_notes,
-      symptoms,
+    const meta: PatientMeta = {
+      patient_name: body.patient_name,
+      patient_age: body.patient_age,
+      patient_gender: body.patient_gender,
+      clinical_notes: body.clinical_notes,
+      symptoms: body.symptoms,
     };
 
-    // ================= REPORT CHAT =================
-    if (task_type === "report_chat") {
-      if (!chat_message || !current_report) {
-        throw new Error("Missing chat input");
-      }
+    // ─── Orchestrator decides the plan ───
+    const plan = orchestrate(body);
 
-      if (isOutOfScope(chat_message)) {
-        return new Response(
-          JSON.stringify({ chat_response: refusalResponse() }),
-          { headers: corsHeaders },
-        );
-      }
+    console.log(`[Orchestrator] Task: ${plan.task_type} | Pipeline: ${plan.pipeline.length} steps | ${plan.description}`);
 
-      const systemPrompt = buildChatPrompt(current_report, meta);
-
-      const messages: any[] = [
-        { role: "system", content: systemPrompt },
-        ...(chat_history || []),
-        { role: "user", content: chat_message },
-      ];
-
-      const res = await callVLM(apiKey, systemPrompt, messages);
-
-      const match = res.match(/```updated_report\n([\s\S]*?)```/);
-
-      return new Response(
-        JSON.stringify({
-          chat_response: match
-            ? res.replace(/```updated_report[\s\S]*?```/, "").trim()
-            : res,
-          updated_report: match ? match[1].trim() : null,
-        }),
-        { headers: corsHeaders },
-      );
+    // ─── Validate shared requirements ───
+    if (body.task_type !== "report_chat" && !body.image_base64) {
+      throw new Error("Missing required image");
     }
 
-    // ================= VALIDATION =================
-    if (!task_type || !image_base64) {
-      throw new Error("Missing required fields");
+    // ─── Route to the correct executor ───
+    let result: Record<string, any>;
+
+    switch (body.task_type) {
+      case "report_generation":
+        result = await executeReportGeneration(apiKey, body, meta, plan);
+        break;
+      case "vqa":
+        result = await executeVQA(apiKey, body, plan);
+        break;
+      case "comparison":
+        result = await executeComparison(apiKey, body, plan);
+        break;
+      case "report_chat":
+        result = await executeReportChat(apiKey, body, meta, plan);
+        break;
+      default:
+        throw new Error(`Unknown task_type: ${body.task_type}`);
     }
 
-    const plan = orchestrate(
-      task_type,
-      !!clinical_notes,
-      !!question,
-    );
-
-    let systemPrompt = "";
-    const userContent: any[] = [];
-
-    if (task_type === "comparison") {
-      // ================= COMPARISON =================
-      const { image_base64_after, image_type_after } = body;
-      if (!image_base64_after) throw new Error("Missing second image for comparison");
-
-      systemPrompt = `
-Bạn là bác sĩ chuyên gia X-quang. Nhiệm vụ: so sánh 2 ảnh X-quang (trước và sau điều trị).
-
-RULES:
-- Chỉ mô tả những gì nhìn thấy được
-- Không bịa số liệu
-- So sánh cụ thể từng vùng giải phẫu
-
-OUTPUT FORMAT (tiếng Việt):
-
-## TỔNG QUAN
-- Loại ảnh, vùng chụp
-
-## SO SÁNH CHI TIẾT
-### Ảnh trước điều trị
-- Các tổn thương / bất thường
-
-### Ảnh sau điều trị
-- Thay đổi so với trước
-
-## ĐÁNH GIÁ TIẾN TRIỂN
-- Cải thiện / xấu đi / không thay đổi
-- Mức độ đáp ứng điều trị
-
-## KẾT LUẬN VÀ KHUYẾN NGHỊ
-- Nhận xét tổng thể
-- Hướng xử lý tiếp theo
-`;
-
-      userContent.push(
-        { type: "text", text: `Ghi chú lâm sàng: ${clinical_notes || "Không có"}` },
-        { type: "text", text: "Ảnh TRƯỚC điều trị:" },
-        { type: "image_url", image_url: { url: `data:${image_type || "image/png"};base64,${image_base64}` } },
-        { type: "text", text: "Ảnh SAU điều trị:" },
-        { type: "image_url", image_url: { url: `data:${image_type_after || "image/png"};base64,${image_base64_after}` } },
-      );
-    } else if (task_type === "report_generation") {
-      systemPrompt = buildReportPrompt(meta);
-
-      userContent.push({
-        type: "text",
-        text: `Clinical notes: ${clinical_notes || "None"}`,
-      });
-    } else {
-      if (isOutOfScope(question || "")) {
-        return new Response(
-          JSON.stringify({ answer: refusalResponse() }),
-          { headers: corsHeaders },
-        );
-      }
-
-      systemPrompt = buildVQAPrompt();
-
-      userContent.push({
-        type: "text",
-        text: `Question: ${question}`,
-      });
-    }
-
-    if (task_type !== "comparison") {
-      userContent.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${image_type || "image/png"};base64,${image_base64}`,
-        },
-      });
-    }
-
-    const draft = await callVLM(apiKey, systemPrompt, userContent);
-    const refined = await selfRefine(apiKey, draft);
-
-    return new Response(
-      JSON.stringify({
-        task_type,
-        plan,
-        draft_report: draft,
-        refined_report: refined,
-      }),
-      { headers: corsHeaders },
-    );
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
+    console.error("[medical-ai]", (err as Error).message);
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: corsHeaders },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
