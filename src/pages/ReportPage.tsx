@@ -114,18 +114,6 @@ const ReportPage: React.FC = () => {
       setRefinedReport(data.refined_report || "");
       setRefinementLog(data.refinement_log || []);
 
-      if (user) {
-        await supabase.from("medical_reports").insert({
-          user_id: user.id,
-          image_type: imageFile.type,
-          clinical_notes: clinicalNotes,
-          draft_report: data.draft_report || "",
-          refined_report: data.refined_report || "",
-          refinement_log: data.refinement_log || [],
-          task_type: "report_generation",
-        });
-      }
-
       toast({ title: "Thành công!", description: "Đã tạo báo cáo." });
     } catch (err: any) {
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
@@ -246,9 +234,21 @@ const ReportPage: React.FC = () => {
 
                 <Button
                   className="mt-4 w-full"
-                  onClick={() =>
-                    exportReportToPdf(refinedReport, clinicalNotes, imagePreview)
-                  }
+                  onClick={async () => {
+                    await exportReportToPdf(refinedReport, clinicalNotes, imagePreview);
+                    if (user) {
+                      await supabase.from("medical_reports").insert({
+                        user_id: user.id,
+                        image_type: imageFile?.type || null,
+                        clinical_notes: clinicalNotes,
+                        draft_report: draftReport,
+                        refined_report: refinedReport,
+                        refinement_log: refinementLog,
+                        task_type: "report_generation",
+                      });
+                      toast({ title: "Đã lưu", description: "Báo cáo đã được lưu vào lịch sử." });
+                    }
+                  }}
                 >
                   <Download className="mr-2" /> Tải PDF
                 </Button>
