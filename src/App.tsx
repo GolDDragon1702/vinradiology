@@ -10,6 +10,7 @@ import AuthPage from "@/pages/AuthPage";
 import Dashboard from "@/pages/Dashboard";
 import ReportPage from "@/pages/ReportPage";
 import VQAPage from "@/pages/VQAPage";
+import ComparisonPage from "@/pages/ComparisonPage";
 import HistoryPage from "@/pages/HistoryPage";
 import NotFound from "@/pages/NotFound";
 
@@ -45,6 +46,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AppLayout><ReportPage /></AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/comparison"
+              element={
+                <ProtectedRoute>
+                  <AppLayout><ComparisonPage /></AppLayout>
                 </ProtectedRoute>
               }
             />

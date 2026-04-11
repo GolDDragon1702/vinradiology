@@ -23,12 +23,14 @@ import {
   History,
   LogOut,
   User,
+  ArrowLeftRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "Tổng quan", url: "/dashboard", icon: LayoutDashboard },
   { title: "Tạo báo cáo", url: "/report", icon: FileText },
+  { title: "So sánh X-quang", url: "/comparison", icon: ArrowLeftRight },
   { title: "Hỏi đáp VQA", url: "/vqa", icon: MessageSquareText },
   { title: "Lịch sử", url: "/history", icon: History },
 ];
