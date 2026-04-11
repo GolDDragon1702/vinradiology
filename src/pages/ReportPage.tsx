@@ -114,18 +114,6 @@ const ReportPage: React.FC = () => {
       setRefinedReport(data.refined_report || "");
       setRefinementLog(data.refinement_log || []);
 
-      if (user) {
-        await supabase.from("medical_reports").insert({
-          user_id: user.id,
-          image_type: imageFile.type,
-          clinical_notes: clinicalNotes,
-          draft_report: data.draft_report || "",
-          refined_report: data.refined_report || "",
-          refinement_log: data.refinement_log || [],
-          task_type: "report_generation",
-        });
-      }
-
       toast({ title: "Thành công!", description: "Đã tạo báo cáo." });
     } catch (err: any) {
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
