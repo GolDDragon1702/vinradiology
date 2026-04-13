@@ -457,12 +457,18 @@ async function executeReportGeneration(
   plan: OrchestratorPlan,
 ) {
   const systemPrompt = buildReportPrompt(meta);
-  const userContent: any[] = [
-    { type: "text", text: `Clinical notes: ${body.clinical_notes || "None"}` },
-    { type: "image_url", image_url: { url: `data:${body.image_type || "image/png"};base64,${body.image_base64}` } },
-  ];
 
-  const draft = await callVLM(apiKey, systemPrompt, userContent);
+  // Step 1: Draft via Replicate VLM (medical image analysis)
+  console.log("[ReportGen] Calling Replicate VLM for draft...");
+  const draft = await callReplicateVLM(
+    systemPrompt,
+    `Clinical notes: ${body.clinical_notes || "None"}`,
+    body.image_base64!,
+    body.image_type || "image/png",
+  );
+
+  // Step 2: Self-refinement via Lovable AI
+  console.log("[ReportGen] Self-refining via Lovable AI...");
   const refined = await selfRefine(apiKey, draft);
 
   return { task_type: body.task_type, plan, draft_report: draft, refined_report: refined };
