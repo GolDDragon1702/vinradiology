@@ -213,7 +213,6 @@ async function callReplicateVLM(
 
   const imageUrl = `data:${imageType};base64,${imageBase64}`;
 
-  // Create prediction
   const createRes = await fetch("https://api.replicate.com/v1/predictions", {
     method: "POST",
     headers: {
@@ -239,13 +238,11 @@ async function callReplicateVLM(
 
   const prediction = await createRes.json();
 
-  // If "Prefer: wait" returned completed result
   if (prediction.status === "succeeded") {
     const output = prediction.output;
     return Array.isArray(output) ? output.join("") : String(output || "");
   }
 
-  // Otherwise poll for result
   const pollUrl = prediction.urls?.get || `https://api.replicate.com/v1/predictions/${prediction.id}`;
   for (let i = 0; i < 60; i++) {
     await new Promise((r) => setTimeout(r, 2000));
@@ -263,6 +260,39 @@ async function callReplicateVLM(
     }
   }
   throw new Error("Replicate prediction timed out");
+}
+
+// Call Replicate VLM twice (for 2-image comparison) and merge results
+async function callReplicateVLMComparison(
+  systemPrompt: string,
+  clinicalNotes: string,
+  imgBefore: string,
+  imgTypeBefore: string,
+  imgAfter: string,
+  imgTypeAfter: string,
+): Promise<string> {
+  const [analysisBefore, analysisAfter] = await Promise.all([
+    callReplicateVLM(
+      "You are a medical radiology AI. Describe all findings in this X-ray image in detail. Answer in Vietnamese.",
+      `Clinical notes: ${clinicalNotes}\n\nThis is the BEFORE treatment image.`,
+      imgBefore,
+      imgTypeBefore,
+    ),
+    callReplicateVLM(
+      "You are a medical radiology AI. Describe all findings in this X-ray image in detail. Answer in Vietnamese.",
+      `Clinical notes: ${clinicalNotes}\n\nThis is the AFTER treatment image.`,
+      imgAfter,
+      imgTypeAfter,
+    ),
+  ]);
+
+  // Use Lovable AI to synthesize comparison from both analyses
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableKey) throw new Error("Missing LOVABLE_API_KEY");
+
+  return await callVLM(lovableKey, systemPrompt, [
+    { type: "text", text: `Phân tích ảnh TRƯỚC điều trị:\n${analysisBefore}\n\nPhân tích ảnh SAU điều trị:\n${analysisAfter}\n\nGhi chú lâm sàng: ${clinicalNotes}\n\nHãy tổng hợp so sánh chi tiết theo format yêu cầu.` },
+  ]);
 }
 
 // ================= LOVABLE AI CALL (for refinement, chat, VQA) =================
