@@ -199,7 +199,73 @@ function orchestrate(body: RequestBody): OrchestratorPlan {
   };
 }
 
-// ================= VLM CALL =================
+// ================= REPLICATE VLM CALL (for draft generation) =================
+const REPLICATE_MODEL = "yorickvp/llava-v1.6-34b";
+
+async function callReplicateVLM(
+  systemPrompt: string,
+  textInput: string,
+  imageBase64: string,
+  imageType: string,
+): Promise<string> {
+  const replicateToken = Deno.env.get("REPLICATE_API_TOKEN");
+  if (!replicateToken) throw new Error("Missing REPLICATE_API_TOKEN");
+
+  const imageUrl = `data:${imageType};base64,${imageBase64}`;
+
+  // Create prediction
+  const createRes = await fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
+      "Content-Type": "application/json",
+      Prefer: "wait",
+    },
+    body: JSON.stringify({
+      model: REPLICATE_MODEL,
+      input: {
+        image: imageUrl,
+        prompt: `${systemPrompt}\n\n${textInput}`,
+        max_tokens: 4096,
+        temperature: 0.2,
+      },
+    }),
+  });
+
+  if (!createRes.ok) {
+    const errText = await createRes.text();
+    throw new Error(`Replicate error ${createRes.status}: ${errText}`);
+  }
+
+  const prediction = await createRes.json();
+
+  // If "Prefer: wait" returned completed result
+  if (prediction.status === "succeeded") {
+    const output = prediction.output;
+    return Array.isArray(output) ? output.join("") : String(output || "");
+  }
+
+  // Otherwise poll for result
+  const pollUrl = prediction.urls?.get || `https://api.replicate.com/v1/predictions/${prediction.id}`;
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const pollRes = await fetch(pollUrl, {
+      headers: { Authorization: `Bearer ${replicateToken}` },
+    });
+    const pollData = await pollRes.json();
+
+    if (pollData.status === "succeeded") {
+      const output = pollData.output;
+      return Array.isArray(output) ? output.join("") : String(output || "");
+    }
+    if (pollData.status === "failed" || pollData.status === "canceled") {
+      throw new Error(`Replicate prediction ${pollData.status}: ${pollData.error || "unknown"}`);
+    }
+  }
+  throw new Error("Replicate prediction timed out");
+}
+
+// ================= LOVABLE AI CALL (for refinement, chat, VQA) =================
 async function callVLM(
   apiKey: string,
   systemPrompt: string,
@@ -391,12 +457,18 @@ async function executeReportGeneration(
   plan: OrchestratorPlan,
 ) {
   const systemPrompt = buildReportPrompt(meta);
-  const userContent: any[] = [
-    { type: "text", text: `Clinical notes: ${body.clinical_notes || "None"}` },
-    { type: "image_url", image_url: { url: `data:${body.image_type || "image/png"};base64,${body.image_base64}` } },
-  ];
 
-  const draft = await callVLM(apiKey, systemPrompt, userContent);
+  // Step 1: Draft via Replicate VLM (medical image analysis)
+  console.log("[ReportGen] Calling Replicate VLM for draft...");
+  const draft = await callReplicateVLM(
+    systemPrompt,
+    `Clinical notes: ${body.clinical_notes || "None"}`,
+    body.image_base64!,
+    body.image_type || "image/png",
+  );
+
+  // Step 2: Self-refinement via Lovable AI
+  console.log("[ReportGen] Self-refining via Lovable AI...");
   const refined = await selfRefine(apiKey, draft);
 
   return { task_type: body.task_type, plan, draft_report: draft, refined_report: refined };
