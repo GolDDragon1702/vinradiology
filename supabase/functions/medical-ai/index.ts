@@ -514,12 +514,17 @@ async function executeVQA(
   }
 
   const systemPrompt = buildVQAPrompt();
-  const userContent: any[] = [
-    { type: "text", text: `Question: ${body.question}` },
-    { type: "image_url", image_url: { url: `data:${body.image_type || "image/png"};base64,${body.image_base64}` } },
-  ];
 
-  const draft = await callVLM(apiKey, systemPrompt, userContent);
+  // Draft via Replicate VLM
+  console.log("[VQA] Calling Replicate VLM for draft...");
+  const draft = await callReplicateVLM(
+    systemPrompt,
+    `Question: ${body.question}`,
+    body.image_base64!,
+    body.image_type || "image/png",
+  );
+
+  console.log("[VQA] Self-refining via Lovable AI...");
   const refined = await selfRefine(apiKey, draft);
 
   return { task_type: body.task_type, plan, draft_report: draft, refined_report: refined };
@@ -533,15 +538,19 @@ async function executeComparison(
   if (!body.image_base64_after) throw new Error("Missing second image for comparison");
 
   const systemPrompt = buildComparisonPrompt();
-  const userContent: any[] = [
-    { type: "text", text: `Ghi chú lâm sàng: ${body.clinical_notes || "Không có"}` },
-    { type: "text", text: "Ảnh TRƯỚC điều trị:" },
-    { type: "image_url", image_url: { url: `data:${body.image_type || "image/png"};base64,${body.image_base64}` } },
-    { type: "text", text: "Ảnh SAU điều trị:" },
-    { type: "image_url", image_url: { url: `data:${body.image_type_after || "image/png"};base64,${body.image_base64_after}` } },
-  ];
 
-  const draft = await callVLM(apiKey, systemPrompt, userContent);
+  // Draft via Replicate VLM (2 images analyzed separately then merged)
+  console.log("[Comparison] Calling Replicate VLM for both images...");
+  const draft = await callReplicateVLMComparison(
+    systemPrompt,
+    body.clinical_notes || "Không có",
+    body.image_base64!,
+    body.image_type || "image/png",
+    body.image_base64_after!,
+    body.image_type_after || "image/png",
+  );
+
+  console.log("[Comparison] Self-refining via Lovable AI...");
   const refined = await selfRefine(apiKey, draft);
 
   return { task_type: body.task_type, plan, draft_report: draft, refined_report: refined };
