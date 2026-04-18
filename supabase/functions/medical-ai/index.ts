@@ -254,7 +254,9 @@ async function callCheXagentVLMComparison(
 
   // Use Lovable AI to synthesize comparison from both analyses
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableKey) throw new Error("Missing LOVABLE_API_KEY");
+  if (!lovableKey) {
+    return `Phân tích ảnh TRƯỚC điều trị:\n${analysisBefore}\n\nPhân tích ảnh SAU điều trị:\n${analysisAfter}\n\n[Tính năng tổng hợp tự động bị tắt do thiếu Key]`;
+  }
 
   return await callVLM(lovableKey, systemPrompt, [
     { type: "text", text: `Phân tích ảnh TRƯỚC điều trị:\n${analysisBefore}\n\nPhân tích ảnh SAU điều trị:\n${analysisAfter}\n\nGhi chú lâm sàng: ${clinicalNotes}\n\nHãy tổng hợp so sánh chi tiết theo format yêu cầu.` },
@@ -267,6 +269,9 @@ async function callVLM(
   systemPrompt: string,
   userContent: any[],
 ): Promise<string> {
+  if (!apiKey) {
+    return "[CẢNH BÁO]: Tính năng LLM đã bị tắt do thiếu LOVABLE_API_KEY. Đây là nội dung giữ chỗ.";
+  }
   const res = await fetch(
     "https://ai.gateway.lovable.dev/v1/chat/completions",
     {
@@ -424,18 +429,22 @@ ${buildHeader(meta)}
 
 // ================= SELF REFINE =================
 async function selfRefine(apiKey: string, draft: string): Promise<string> {
+  if (!apiKey) {
+    return draft; // Bypass refine if no key
+  }
+
   const prompt = `
-Bạn là một bác sĩ chuyên gia X-quang.
+  Bạn là một bác sĩ chuyên gia X-quang.
 
-Nhiệm vụ:
-- Chuẩn hóa báo cáo
-- Đảm bảo không có số liệu bịa
-- Nếu số liệu không chắc → thay bằng:
-  "Không ghi nhận số đo định lượng rõ ràng"
-- Đảm bảo format đúng
+  Nhiệm vụ:
+  - Chuẩn hóa báo cáo
+  - Đảm bảo không có số liệu bịa
+  - Nếu số liệu không chắc → thay bằng:
+    "Không ghi nhận số đo định lượng rõ ràng"
+  - Đảm bảo format đúng
 
-Trả về báo cáo hoàn chỉnh bằng tiếng Việt.
-`;
+  Trả về báo cáo hoàn chỉnh bằng tiếng Việt.
+  `;
 
   return await callVLM(apiKey, prompt, [
     { type: "text", text: draft },
@@ -566,8 +575,7 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("Missing API key");
+    const apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
 
     const body: RequestBody = await req.json();
 
