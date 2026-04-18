@@ -200,7 +200,7 @@ function orchestrate(body: RequestBody): OrchestratorPlan {
 }
 
 // ================= CHEXAGENT VLM CALL (for draft generation) =================
-const CHEXAGENT_API_URL = Deno.env.get("CHEXAGENT_API_URL") || "http://localhost:8000/generate";
+const CHEXAGENT_API_URL = Deno.env.get("CHEXAGENT_API_URL") || "http://localhost:8001/generate";
 
 async function callCheXagentVLM(
   systemPrompt: string,
