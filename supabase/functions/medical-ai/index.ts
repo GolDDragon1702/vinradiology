@@ -199,71 +199,37 @@ function orchestrate(body: RequestBody): OrchestratorPlan {
   };
 }
 
-// ================= REPLICATE VLM CALL (for draft generation) =================
-const REPLICATE_MODEL = "yorickvp/llava-v1.6-34b";
+// ================= CHEXAGENT VLM CALL (for draft generation) =================
+const CHEXAGENT_API_URL = Deno.env.get("CHEXAGENT_API_URL") || "http://localhost:8000/generate";
 
-async function callReplicateVLM(
+async function callCheXagentVLM(
   systemPrompt: string,
   textInput: string,
   imageBase64: string,
   imageType: string,
 ): Promise<string> {
-  const replicateToken = Deno.env.get("REPLICATE_API_TOKEN");
-  if (!replicateToken) throw new Error("Missing REPLICATE_API_TOKEN");
-
-  const imageUrl = `data:${imageType};base64,${imageBase64}`;
-
-  const createRes = await fetch("https://api.replicate.com/v1/predictions", {
+  const res = await fetch(CHEXAGENT_API_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${replicateToken}`,
       "Content-Type": "application/json",
-      Prefer: "wait",
     },
     body: JSON.stringify({
-      model: REPLICATE_MODEL,
-      input: {
-        image: imageUrl,
-        prompt: `${systemPrompt}\n\n${textInput}`,
-        max_tokens: 4096,
-        temperature: 0.2,
-      },
+      image_base64: imageBase64,
+      prompt: `${systemPrompt}\n\n${textInput}`,
     }),
   });
 
-  if (!createRes.ok) {
-    const errText = await createRes.text();
-    throw new Error(`Replicate error ${createRes.status}: ${errText}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`CheXagent error ${res.status}: ${errText}`);
   }
 
-  const prediction = await createRes.json();
-
-  if (prediction.status === "succeeded") {
-    const output = prediction.output;
-    return Array.isArray(output) ? output.join("") : String(output || "");
-  }
-
-  const pollUrl = prediction.urls?.get || `https://api.replicate.com/v1/predictions/${prediction.id}`;
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const pollRes = await fetch(pollUrl, {
-      headers: { Authorization: `Bearer ${replicateToken}` },
-    });
-    const pollData = await pollRes.json();
-
-    if (pollData.status === "succeeded") {
-      const output = pollData.output;
-      return Array.isArray(output) ? output.join("") : String(output || "");
-    }
-    if (pollData.status === "failed" || pollData.status === "canceled") {
-      throw new Error(`Replicate prediction ${pollData.status}: ${pollData.error || "unknown"}`);
-    }
-  }
-  throw new Error("Replicate prediction timed out");
+  const prediction = await res.json();
+  return prediction.output || "";
 }
 
-// Call Replicate VLM twice (for 2-image comparison) and merge results
-async function callReplicateVLMComparison(
+// Call CheXagent VLM twice (for 2-image comparison) and merge results
+async function callCheXagentVLMComparison(
   systemPrompt: string,
   clinicalNotes: string,
   imgBefore: string,
@@ -272,13 +238,13 @@ async function callReplicateVLMComparison(
   imgTypeAfter: string,
 ): Promise<string> {
   const [analysisBefore, analysisAfter] = await Promise.all([
-    callReplicateVLM(
+    callCheXagentVLM(
       "You are a medical radiology AI. Describe all findings in this X-ray image in detail. Answer in Vietnamese.",
       `Clinical notes: ${clinicalNotes}\n\nThis is the BEFORE treatment image.`,
       imgBefore,
       imgTypeBefore,
     ),
-    callReplicateVLM(
+    callCheXagentVLM(
       "You are a medical radiology AI. Describe all findings in this X-ray image in detail. Answer in Vietnamese.",
       `Clinical notes: ${clinicalNotes}\n\nThis is the AFTER treatment image.`,
       imgAfter,
@@ -488,9 +454,9 @@ async function executeReportGeneration(
 ) {
   const systemPrompt = buildReportPrompt(meta);
 
-  // Step 1: Draft via Replicate VLM (medical image analysis)
-  console.log("[ReportGen] Calling Replicate VLM for draft...");
-  const draft = await callReplicateVLM(
+  // Step 1: Draft via CheXagent VLM (medical image analysis)
+  console.log("[ReportGen] Calling CheXagent VLM for draft...");
+  const draft = await callCheXagentVLM(
     systemPrompt,
     `Clinical notes: ${body.clinical_notes || "None"}`,
     body.image_base64!,
@@ -515,9 +481,9 @@ async function executeVQA(
 
   const systemPrompt = buildVQAPrompt();
 
-  // Draft via Replicate VLM
-  console.log("[VQA] Calling Replicate VLM for draft...");
-  const draft = await callReplicateVLM(
+  // Draft via CheXagent VLM
+  console.log("[VQA] Calling CheXagent VLM for draft...");
+  const draft = await callCheXagentVLM(
     systemPrompt,
     `Question: ${body.question}`,
     body.image_base64!,
@@ -539,9 +505,9 @@ async function executeComparison(
 
   const systemPrompt = buildComparisonPrompt();
 
-  // Draft via Replicate VLM (2 images analyzed separately then merged)
-  console.log("[Comparison] Calling Replicate VLM for both images...");
-  const draft = await callReplicateVLMComparison(
+  // Draft via CheXagent VLM (2 images analyzed separately then merged)
+  console.log("[Comparison] Calling CheXagent VLM for both images...");
+  const draft = await callCheXagentVLMComparison(
     systemPrompt,
     body.clinical_notes || "Không có",
     body.image_base64!,
